@@ -21,12 +21,16 @@ private:
 	SDL_Event event;
 	SDL_Window* screen;
 
+	double increase = 0;
+	uint64_t vTs = 0;
+	bool seek_req = false;
+
 public:
 	void showInfo();
 	int setWindow();
 	//virtual int play(std::future<uint64_t> &f);
 	int play(uint64_t* pts_audio);
-	static int sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster);
+	static int sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster, bool& pause);
 
 	double getFrameRate() const;
 };

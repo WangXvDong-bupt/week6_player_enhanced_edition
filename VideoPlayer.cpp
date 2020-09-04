@@ -26,16 +26,18 @@ void VideoPlayer::showInfo()
 	printf("-------------------------------------------------\n");
 }
 
+int screen_w = 0;
+int screen_h = 0;
 
 int VideoPlayer::setWindow()
 {
 	//SDL 2.0 Support for multiple windows
-	/*screen_w = pCodeCtx->width;
-	screen_h = pCodeCtx->height;*/
-	int screen_w = pCodeCtx->width;
-	int screen_h = pCodeCtx->height;
+	screen_w = pCodeCtx->width;
+	screen_h = pCodeCtx->height;
+	/*int screen_w = pCodeCtx->width;
+	int screen_h = pCodeCtx->height;*/
 	screen = SDL_CreateWindow("Simplest ffmpeg player's Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		screen_w, screen_h, SDL_WINDOW_OPENGL);
+		screen_w, screen_h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 	if (!screen) {
 		printf("SDL: could not create window - exiting:%s\n", SDL_GetError());
 		return -1;
@@ -45,20 +47,23 @@ int VideoPlayer::setWindow()
 }
 
 
-int VideoPlayer::sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster) {
+int VideoPlayer::sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster, bool& pause) {
 	while (!exitRefresh)
 	{
-		SDL_Event event;
-		event.type = SFM_REFRESH_EVENT;
-		SDL_PushEvent(&event);
-		//SDL_Delay(60);
-		if (faster) {
-			//std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval / 2));
-			std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval));
+		if (!pause) {
+			SDL_Event event;
+			event.type = SFM_REFRESH_EVENT;
+			SDL_PushEvent(&event);
+			//SDL_Delay(60);
+			if (faster) {
+				//std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval / 2));
+				std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval / 2));
+			}
+			else {
+				std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval));
+			}
 		}
-		else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval));
-		}
+		
 	}
 	return 0;
 }
@@ -110,14 +115,29 @@ int VideoPlayer::play(uint64_t* pts_audio)
 	auto frameRate = getFrameRate();
 	bool exitRefresh = false;
 	bool faster = false;
+	bool pause = false;
 	std::thread refreshThread{ sfp_refresh_thread, (int)(1000 / frameRate), std::ref(exitRefresh),
-							  std::ref(faster) };
+							  std::ref(faster), std::ref(pause) };
 
+
+	SDL_Rect sdlRect;
 
 
 	//SDL_CreateThread(sfp_refresh_thread, NULL, NULL);
 	while (av_read_frame(pFormatCtx, packet) >= 0)
 	{
+		if (seek_req) {
+			//av_seek_frame(pFormatCtx, index, 1/frameRate * ((double)vTs / (double)1000 + increase) * AV_TIME_BASE + (double)pFormatCtx->start_time / (double)AV_TIME_BASE * (1 / frameRate)  , AVSEEK_FLAG_BACKWARD);//指定stream进行seek
+			//av_seek_frame(pFormatCtx, index, 1 / frameRate * ((double)vTs / (double)1000 + increase) * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);//指定stream进行seek
+			AVRational av_get_time_base_q{ 1,1000000 };
+			int64_t targetFrame = av_rescale_q((double)vTs / (double)1000 + increase, av_get_time_base_q, pFormatCtx->streams[index]->time_base);
+			av_seek_frame(pFormatCtx, index, targetFrame * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+
+			avcodec_flush_buffers(pCodeCtx);
+			seek_req = false;
+			//continue;
+		}
+
 		if (packet->stream_index == index)
 		{
 			//ret = avcodec_decode_video2(pCodeCtx, pFrame, &got_picture, packet);
@@ -140,7 +160,7 @@ int VideoPlayer::play(uint64_t* pts_audio)
 
 					//if (ptsAudio != nullptr) {
 					if (true) {
-						uint64_t vTs = av_frame_get_best_effort_timestamp(pFrame) * av_q2d(pFormatCtx->streams[index]->time_base) * 1000;
+						vTs = av_frame_get_best_effort_timestamp(pFrame) * av_q2d(pFormatCtx->streams[index]->time_base) * 1000;
 
 						uint64_t aTs = *pts_audio;
 						if (vTs > aTs && vTs - aTs > 30) {
@@ -162,12 +182,49 @@ int VideoPlayer::play(uint64_t* pts_audio)
 
 					//SDL---------------------------
 					SDL_UpdateTexture(sdlTexture, NULL, pFrameYUV->data[0], pFrameYUV->linesize[0]);
+
+					//if window is resize
+					sdlRect.x = 0;
+					sdlRect.y = 0;
+					sdlRect.w = screen_w;
+					sdlRect.h = screen_h;
+
+
 					SDL_RenderClear(sdlRenderer);
-					SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+					SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, &sdlRect);
 					SDL_RenderPresent(sdlRenderer);
 					//SDL End-----------------------
 					break;
 
+				}
+				else if(event.type == SDL_WINDOWEVENT)
+				{
+					//if resize
+					SDL_GetWindowSize(screen, &screen_w, &screen_h);
+				}
+				else if (event.type == SDL_KEYDOWN)
+				{
+					switch (event.key.keysym.sym)
+					{
+					case SDLK_SPACE:
+						pause = pause ? false : true;
+						break;
+
+					case SDLK_KP_1:
+						increase = 10.0;
+						seek_req = true;
+						break;
+
+					case SDLK_KP_2:
+						increase = 30.0;
+						seek_req = true;
+						break;
+
+
+					default:
+						break;
+
+					}
 				}
 			}
 		}

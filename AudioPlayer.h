@@ -40,11 +40,19 @@ private:
 	//获取输出的声道个数
 	int out_channel_nb;
 
+	bool fast_forward_10 = false;
+	bool fast_forward_30 = false;
+	bool seek_req = false;
+	double increase = 0;
+
 public:
 	void audioSetting();
 	int setAudioSDL();
 	int play();
 	int playByOpenAL(uint64_t* pts_audio);
+
+	static int sfp_control_thread(bool& exitRefresh, bool& pause, float& volumn, bool& volumnChange, 
+		bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req);
 
 	uint64_t ptsAudio = 0;
 	uint64_t getPts();

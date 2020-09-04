@@ -140,7 +140,67 @@ int AudioPlayer::allocDataBuf(uint8_t** outData, int inputSamples) {
 	return guessOutSize;
 }
 
+int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volumn, bool& volumnChange, 
+	bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req) {
+	SDL_Event event;
+	const Uint8* state = SDL_GetKeyboardState(NULL);
+	bool key_space_down = false;
+	bool key_plus_down = false;
+	bool key_minus_down = false;
+	while (!exitControl)
+	{
 
+		if (state[SDL_SCANCODE_SPACE] && !key_space_down) {
+			key_space_down = true;
+			pause = pause ? false : true;
+		}
+		else if (!state[SDL_SCANCODE_SPACE] && key_space_down) {
+			key_space_down = false;
+		}
+
+		if (state[SDL_SCANCODE_KP_PLUS] && !key_plus_down) {
+			key_plus_down = true;
+			if (volumn < 5) {
+				volumn += 0.1;
+			}
+		}
+		else if (!state[SDL_SCANCODE_KP_PLUS] && key_plus_down) {
+			key_plus_down = false;
+		}
+
+		if (state[SDL_SCANCODE_KP_MINUS] && !key_minus_down) {
+			key_minus_down = true;
+			if (volumn > 0) {
+				volumn -= 0.1;
+			}
+		}
+		else if (!state[SDL_SCANCODE_KP_MINUS] && key_minus_down) {
+			key_minus_down = false;
+		}
+		volumnChange = (key_plus_down || key_minus_down);
+
+		if (state[SDL_SCANCODE_KP_1] && !fast_foeward_10) {
+			fast_foeward_10 = true;
+			seek_req = true;
+		}
+		else if (!state[SDL_SCANCODE_KP_1] && fast_foeward_10) {
+			fast_foeward_10 = false;
+		}
+
+		if (state[SDL_SCANCODE_KP_2] && !fast_foeward_30) {
+			fast_foeward_30 = true;
+			seek_req = true;
+		}
+		else if (!state[SDL_SCANCODE_KP_2] && fast_foeward_30) {
+			fast_foeward_30 = false;
+		}
+
+		//更新键盘状态
+		state = SDL_GetKeyboardState(NULL);
+
+	}
+	return 0;
+}
 
 bool fileGotToEnd = false;
 int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
@@ -154,6 +214,17 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 	while (true) {
 		while (!fileGotToEnd) {
 			if (av_read_frame(pFormatCtx, packet) >= 0) {
+
+				if (seek_req) {
+					AVRational av_get_time_base_q{ 1,1000000 };
+					increase = fast_forward_10 ? 10.0 : (fast_forward_30 ? 30.0 : 0);
+					int64_t targetFrame = av_rescale_q((double)ptsAudio / (double)1000 + increase, av_get_time_base_q, pFormatCtx->streams[index]->time_base);
+					av_seek_frame(pFormatCtx, index, targetFrame * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+
+					avcodec_flush_buffers(pCodeCtx);
+					seek_req = false;
+				}
+
 				ret = avcodec_send_packet(pCodeCtx, packet);
 				if (ret == 0) {
 					av_packet_unref(packet);
@@ -265,6 +336,19 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 
 	alGenBuffers(NUMBUFFERS, alBufferArray);
 
+
+	//启动播放和音量控制线程
+	bool exitControl = false;
+	bool pause = false;
+	bool volumnChange = false;
+	float volumn = 1.0;
+	bool fast_forward_10 = false;
+	bool fast_forward_30 = false;
+	std::thread controlThread{ sfp_control_thread, std::ref(exitControl), std::ref(pause), std::ref(volumn), std::ref(volumnChange),
+		std::ref(fast_forward_10), std::ref(fast_forward_30), std::ref(seek_req) };
+
+
+
 	// feed audio buffer first time.
 	for (int i = 0; i < NUMBUFFERS; i++) {
 		feedAudioData(source, alBufferArray[i]);
@@ -308,12 +392,22 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 			iBuffersProcessed -= 1;
 		}
 
+		//改变音量
+		if (volumnChange) {
+			alSourcef(source, AL_GAIN, volumn);
+			cout << "volumnChange" << endl;
+		}
+
+
 		// Check the status of the Source.  If it is not playing, then playback
 		// was completed, or the Source was starved of audio data, and needs to
 		// be restarted.
 		alGetSourcei(source, AL_SOURCE_STATE, &iState);
 
-		if (iState != AL_PLAYING) {
+		if (pause) {
+			alSourcePause(source);
+		}
+		else if (iState != AL_PLAYING) {
 			// If there are Buffers in the Source Queue then the Source was
 			// starved of audio data, so needs to be restarted (because there is
 			// more audio data to play)

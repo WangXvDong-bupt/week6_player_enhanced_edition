@@ -68,13 +68,15 @@ int main(int argc, char* argv[])
 		video.openFile(filepath, AVMEDIA_TYPE_VIDEO);
 		video.showInfo();
 		video.setWindow();
-		std::thread video_tid{ videoThread, &video };
+		video.play(pts_audio);
+		video.Player_Quit();
+		//std::thread video_tid{ videoThread, &video };
 		//video.play(std::ref(fu1));
 		//video.Player_Quit();
 		cout << "FrameRate:" << video.getFrameRate() << endl;
 
 		audio_tid.join();
-		video_tid.join();
+		//video_tid.join();
 	}
 
 	//std::promise<uint64_t> pr1;
