@@ -24,13 +24,15 @@ private:
 	double increase = 0;
 	uint64_t vTs = 0;
 	bool seek_req = false;
+	bool speed_req = false;
+	double speed_idx = 1;
 
 public:
-	void showInfo();
+	void showInfo(char* filepath);
 	int setWindow();
 	//virtual int play(std::future<uint64_t> &f);
 	int play(uint64_t* pts_audio);
-	static int sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster, bool& pause);
+	static int sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster, bool& slower, bool& pause, bool& speed_req, double& speed_idx);
 
 	double getFrameRate() const;
 };

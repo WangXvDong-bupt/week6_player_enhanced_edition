@@ -141,7 +141,7 @@ int AudioPlayer::allocDataBuf(uint8_t** outData, int inputSamples) {
 }
 
 int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volumn, bool& volumnChange, 
-	bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req) {
+	bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req, bool& speed_req, double& speed_idx) {
 	SDL_Event event;
 	const Uint8* state = SDL_GetKeyboardState(NULL);
 	bool key_space_down = false;
@@ -195,6 +195,31 @@ int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volum
 			fast_foeward_30 = false;
 		}
 
+		if (state[SDL_SCANCODE_KP_4] && !speed_req) {
+			speed_req = true;
+			speed_idx = 0.5;
+		}
+
+		if (state[SDL_SCANCODE_KP_5] && !speed_req) {
+			speed_req = true;
+			speed_idx = 0.75;
+		}
+
+		if (state[SDL_SCANCODE_KP_6] && !speed_req) {
+			speed_req = true;
+			speed_idx = 1;
+		}
+
+		if (state[SDL_SCANCODE_KP_7] && !speed_req) {
+			speed_req = true;
+			speed_idx = 1.5;
+		}
+
+		if (state[SDL_SCANCODE_KP_8] && !speed_req) {
+			speed_req = true;
+			speed_idx = 2;
+		}
+
 		//¸üÐÂ¼üÅÌ×´Ì¬
 		state = SDL_GetKeyboardState(NULL);
 
@@ -213,17 +238,19 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 
 	while (true) {
 		while (!fileGotToEnd) {
+
+			if(seek_req) {
+				AVRational av_get_time_base_q{ 1,1000000 };
+				increase = fast_forward_10 ? 10.0 : (fast_forward_30 ? 30.0 : 0);
+				//double targetFrame = av_rescale_q((double)ptsAudio / (double)1000 + increase, av_get_time_base_q, pFormatCtx->streams[index]->time_base);
+				double targetFrame = ((double)ptsAudio / (double)1000 + increase) / av_q2d(pFormatCtx->streams[index]->time_base) / 1000000;
+				av_seek_frame(pFormatCtx, index, targetFrame * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+				//avcodec_flush_buffers(pCodeCtx);
+				seek_req = false;
+				continue;
+			}
+
 			if (av_read_frame(pFormatCtx, packet) >= 0) {
-
-				if (seek_req) {
-					AVRational av_get_time_base_q{ 1,1000000 };
-					increase = fast_forward_10 ? 10.0 : (fast_forward_30 ? 30.0 : 0);
-					int64_t targetFrame = av_rescale_q((double)ptsAudio / (double)1000 + increase, av_get_time_base_q, pFormatCtx->streams[index]->time_base);
-					av_seek_frame(pFormatCtx, index, targetFrame * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
-
-					avcodec_flush_buffers(pCodeCtx);
-					seek_req = false;
-				}
 
 				ret = avcodec_send_packet(pCodeCtx, packet);
 				if (ret == 0) {
@@ -239,7 +266,7 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 
 		ret = -1;
 		ret = avcodec_receive_frame(pCodeCtx, aFrame);
-
+		av_packet_unref(packet);
 		if (ret == 0) {
 			ret = 2;
 			//ptsAudio = av_q2d(pFormatCtx->streams[index]->time_base) * packet->pts * 1000;
@@ -342,10 +369,9 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 	bool pause = false;
 	bool volumnChange = false;
 	float volumn = 1.0;
-	bool fast_forward_10 = false;
-	bool fast_forward_30 = false;
+	
 	std::thread controlThread{ sfp_control_thread, std::ref(exitControl), std::ref(pause), std::ref(volumn), std::ref(volumnChange),
-		std::ref(fast_forward_10), std::ref(fast_forward_30), std::ref(seek_req) };
+		std::ref(fast_forward_10), std::ref(fast_forward_30), std::ref(seek_req), std::ref(speed_req), std::ref(speed_idx) };
 
 
 
@@ -396,6 +422,11 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 		if (volumnChange) {
 			alSourcef(source, AL_GAIN, volumn);
 			cout << "volumnChange" << endl;
+		}
+
+		if (speed_req) {
+			alSourcef(source, AL_PITCH, speed_idx);
+			speed_req = false;
 		}
 
 

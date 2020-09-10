@@ -19,15 +19,17 @@ VideoPlayer::~VideoPlayer()
 
 }
 
-void VideoPlayer::showInfo()
+void VideoPlayer::showInfo(char* filepath)
 {
 	printf("---------------- File Information ---------------\n");
-	av_dump_format(pFormatCtx, 0, "TBBT.mp4", 0);
+	av_dump_format(pFormatCtx, 0, filepath, 0);
 	printf("-------------------------------------------------\n");
 }
 
+
 int screen_w = 0;
 int screen_h = 0;
+
 
 int VideoPlayer::setWindow()
 {
@@ -37,7 +39,7 @@ int VideoPlayer::setWindow()
 	/*int screen_w = pCodeCtx->width;
 	int screen_h = pCodeCtx->height;*/
 	screen = SDL_CreateWindow("Simplest ffmpeg player's Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		screen_w, screen_h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+		screen_w, screen_h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);		//SDL_WINDOW_RESIZABLE即可改变窗口大小
 	if (!screen) {
 		printf("SDL: could not create window - exiting:%s\n", SDL_GetError());
 		return -1;
@@ -47,39 +49,39 @@ int VideoPlayer::setWindow()
 }
 
 
-int VideoPlayer::sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster, bool& pause) {
+
+int VideoPlayer::sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& faster, bool& slower, bool& pause, bool& speed_req, double& speed_idx) {
+	int time_idx= timeInterval;
 	while (!exitRefresh)
 	{
-		if (!pause) {
+		if (!pause)
+		{
 			SDL_Event event;
 			event.type = SFM_REFRESH_EVENT;
 			SDL_PushEvent(&event);
 			//SDL_Delay(60);
+			if (speed_req) {
+				time_idx = speed_idx * timeInterval;
+				speed_req = false;
+			}
+			
 			if (faster) {
 				//std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval / 2));
-				std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval / 2));
+				std::this_thread::sleep_for(std::chrono::milliseconds(time_idx / 2));
+			}
+			else if (slower) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(time_idx * 2));
 			}
 			else {
-				std::this_thread::sleep_for(std::chrono::milliseconds(timeInterval));
+				std::this_thread::sleep_for(std::chrono::milliseconds(time_idx));
 			}
 		}
-		
+
 	}
 	return 0;
 }
 
-/*double VideoPlayer::getFrameRate() const{
-	if (pCodeCtx != nullptr) {
-		auto frameRate = pCodeCtx->framerate;
-		//double fr = frameRate.num && frameRate.den ? av_q2d(frameRate) : 0.0;
-		double fr = av_q2d(frameRate);
-		return fr;
-	}
-	else {
-		//throw std::runtime_error("can not getFrameRate.");
-		return 1.0;
-	}
-}*/
+
 double VideoPlayer::getFrameRate() const {
 	if (pFormatCtx != nullptr) {
 		AVStream* stream = pFormatCtx->streams[index];
@@ -115,13 +117,14 @@ int VideoPlayer::play(uint64_t* pts_audio)
 	auto frameRate = getFrameRate();
 	bool exitRefresh = false;
 	bool faster = false;
+	bool slower = false;
 	bool pause = false;
 	std::thread refreshThread{ sfp_refresh_thread, (int)(1000 / frameRate), std::ref(exitRefresh),
-							  std::ref(faster), std::ref(pause) };
+							  std::ref(faster), std::ref(slower), std::ref(pause), std::ref(speed_req), std::ref(speed_idx) };
+	cout << "freamrate" << frameRate << endl;
 
 
 	SDL_Rect sdlRect;
-
 
 	//SDL_CreateThread(sfp_refresh_thread, NULL, NULL);
 	while (av_read_frame(pFormatCtx, packet) >= 0)
@@ -129,11 +132,29 @@ int VideoPlayer::play(uint64_t* pts_audio)
 		if (seek_req) {
 			//av_seek_frame(pFormatCtx, index, 1/frameRate * ((double)vTs / (double)1000 + increase) * AV_TIME_BASE + (double)pFormatCtx->start_time / (double)AV_TIME_BASE * (1 / frameRate)  , AVSEEK_FLAG_BACKWARD);//指定stream进行seek
 			//av_seek_frame(pFormatCtx, index, 1 / frameRate * ((double)vTs / (double)1000 + increase) * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);//指定stream进行seek
+			//av_seek_frame(pFormatCtx, index, (frameRate / 1000 * ((double)vTs / (double)1000 )+increase)  * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
 			AVRational av_get_time_base_q{ 1,1000000 };
-			int64_t targetFrame = av_rescale_q((double)vTs / (double)1000 + increase, av_get_time_base_q, pFormatCtx->streams[index]->time_base);
+			//double targetFrame = av_rescale_q((double)vTs / (double)1000 + increase, av_get_time_base_q, pFormatCtx->streams[index]->time_base);
+			double targetFrame = ((double)vTs / (double)1000 + increase) / av_q2d(pFormatCtx->streams[index]->time_base) / 1000000;
 			av_seek_frame(pFormatCtx, index, targetFrame * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
 
-			avcodec_flush_buffers(pCodeCtx);
+			while (true) {
+				if (av_read_frame(pFormatCtx, packet) < 0)
+					break;
+				if (packet->stream_index == index) {
+					ret = avcodec_send_packet(pCodeCtx, packet);
+					got_picture = avcodec_receive_frame(pCodeCtx, pFrame);
+				}
+				double nowTime = packet->pts * av_q2d(pFormatCtx->streams[index]->time_base) * 1000;
+				double moveTime = (double)vTs + increase * 1000;
+				if (nowTime < moveTime) {
+					av_packet_unref(packet);
+					continue;
+				}
+				else break;
+			}
+
+			//avcodec_flush_buffers(pCodeCtx);
 			seek_req = false;
 			//continue;
 		}
@@ -161,22 +182,25 @@ int VideoPlayer::play(uint64_t* pts_audio)
 					//if (ptsAudio != nullptr) {
 					if (true) {
 						vTs = av_frame_get_best_effort_timestamp(pFrame) * av_q2d(pFormatCtx->streams[index]->time_base) * 1000;
-
+						cout << "time_base" << av_q2d(pFormatCtx->streams[index]->time_base) << endl;
 						uint64_t aTs = *pts_audio;
 						if (vTs > aTs && vTs - aTs > 30) {
 							cout << "VIDEO FASTER ================= vTs - aTs [" << (vTs - aTs)
 								<< "]ms, SKIP A EVENT" << aTs << "---" << vTs << endl;
 							// skip a REFRESH_EVENT
 							faster = false;
+							slower = true;
 							//continue;
 						}
 						else if (vTs < aTs && aTs - vTs > 30) {
 							cout << "VIDEO SLOWER ================= aTs - vTs =[" << (aTs - vTs) << "]ms, Faster" << aTs << "---" << vTs
 								<< endl;
 							faster = true;
+							slower = false;
 						}
 						else {
 							faster = false;
+							slower = false;
 						}
 					}
 
@@ -189,7 +213,6 @@ int VideoPlayer::play(uint64_t* pts_audio)
 					sdlRect.w = screen_w;
 					sdlRect.h = screen_h;
 
-
 					SDL_RenderClear(sdlRenderer);
 					SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, &sdlRect);
 					SDL_RenderPresent(sdlRenderer);
@@ -197,10 +220,11 @@ int VideoPlayer::play(uint64_t* pts_audio)
 					break;
 
 				}
-				else if(event.type == SDL_WINDOWEVENT)
+				else if (event.type == SDL_WINDOWEVENT)
 				{
 					//if resize
 					SDL_GetWindowSize(screen, &screen_w, &screen_h);
+
 				}
 				else if (event.type == SDL_KEYDOWN)
 				{
@@ -220,6 +244,30 @@ int VideoPlayer::play(uint64_t* pts_audio)
 						seek_req = true;
 						break;
 
+					case SDLK_KP_4:
+						speed_idx = 0.5;
+						speed_idx = true;
+						break;
+
+					case SDLK_KP_5:
+						speed_idx = 0.75;
+						speed_idx = true;
+						break;
+
+					case SDLK_KP_6:
+						speed_idx = 1;
+						speed_idx = true;
+						break;
+
+					case SDLK_KP_7:
+						speed_idx = 1.5;
+						speed_idx = true;
+						break;
+
+					case SDLK_KP_8:
+						speed_idx = 2;
+						speed_idx = true;
+						break;
 
 					default:
 						break;

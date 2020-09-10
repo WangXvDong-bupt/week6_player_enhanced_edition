@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 
 		VideoPlayer video;
 		video.openFile(filepath, AVMEDIA_TYPE_VIDEO);
-		video.showInfo();
+		video.showInfo(filepath);
 		video.setWindow();
 		video.play(pts_audio);
 		video.Player_Quit();

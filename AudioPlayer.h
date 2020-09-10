@@ -44,6 +44,8 @@ private:
 	bool fast_forward_30 = false;
 	bool seek_req = false;
 	double increase = 0;
+	bool speed_req = false;
+	double speed_idx = 1;
 
 public:
 	void audioSetting();
@@ -52,7 +54,7 @@ public:
 	int playByOpenAL(uint64_t* pts_audio);
 
 	static int sfp_control_thread(bool& exitRefresh, bool& pause, float& volumn, bool& volumnChange, 
-		bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req);
+		bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req, bool& speed_req, double& speed_idx);
 
 	uint64_t ptsAudio = 0;
 	uint64_t getPts();
