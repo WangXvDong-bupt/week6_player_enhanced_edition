@@ -26,39 +26,39 @@ AudioPlayer::AudioPlayer()
 
 AudioPlayer::~AudioPlayer()
 {
-	SDL_CloseAudio();//å…³é—­éŸ³é¢‘è®¾å¤‡ 
+	SDL_CloseAudio();//¹Ø±ÕÒôÆµÉè±¸ 
 	swr_free(&swrCtx);
 }
 
 
 void AudioPlayer::audioSetting()
 {
-	//é‡é‡‡æ ·è®¾ç½®é€‰é¡¹-----------------------------------------------------------start
-	//è¾“å…¥çš„é‡‡æ ·æ ¼å¼
+	//ÖØ²ÉÑùÉèÖÃÑ¡Ïî-----------------------------------------------------------start
+	//ÊäÈëµÄ²ÉÑù¸ñÊ½
 	in_sample_fmt = pCodeCtx->sample_fmt;
-	//è¾“å‡ºçš„é‡‡æ ·æ ¼å¼ 16bit PCM
+	//Êä³öµÄ²ÉÑù¸ñÊ½ 16bit PCM
 	out_sample_fmt = AV_SAMPLE_FMT_S16;
-	//è¾“å…¥çš„é‡‡æ ·ç‡
+	//ÊäÈëµÄ²ÉÑùÂÊ
 	in_sample_rate = pCodeCtx->sample_rate;
-	//è¾“å‡ºçš„é‡‡æ ·ç‡
+	//Êä³öµÄ²ÉÑùÂÊ
 	out_sample_rate = pCodeCtx->sample_rate;
-	//è¾“å…¥çš„å£°é“å¸ƒå±€
+	//ÊäÈëµÄÉùµÀ²¼¾Ö
 	in_ch_layout = pCodeCtx->channel_layout;
 	if (in_ch_layout <= 0)
 	{
 		in_ch_layout = av_get_default_channel_layout(pCodeCtx->channels);
 	}
-	//è¾“å‡ºçš„å£°é“å¸ƒå±€
-	out_ch_layout = AV_CH_LAYOUT_STEREO;			//ä¸SDLæ’­æ”¾ä¸åŒ
+	//Êä³öµÄÉùµÀ²¼¾Ö
+	out_ch_layout = AV_CH_LAYOUT_STEREO;			//ÓëSDL²¥·Å²»Í¬
 
-	//frame->16bit 44100 PCM ç»Ÿä¸€éŸ³é¢‘é‡‡æ ·æ ¼å¼ä¸é‡‡æ ·ç‡
+	//frame->16bit 44100 PCM Í³Ò»ÒôÆµ²ÉÑù¸ñÊ½Óë²ÉÑùÂÊ
 	swrCtx = swr_alloc();
 	swr_alloc_set_opts(swrCtx, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout, in_sample_fmt,
 		in_sample_rate, 0, NULL);
 	swr_init(swrCtx);
-	//é‡é‡‡æ ·è®¾ç½®é€‰é¡¹-----------------------------------------------------------end
+	//ÖØ²ÉÑùÉèÖÃÑ¡Ïî-----------------------------------------------------------end
 
-	//è·å–è¾“å‡ºçš„å£°é“ä¸ªæ•°
+	//»ñÈ¡Êä³öµÄÉùµÀ¸öÊı
 	out_channel_nb = av_get_channel_layout_nb_channels(out_ch_layout);
 
 	s_touch.setSampleRate(out_sample_rate); // ÉèÖÃ±äËÙÊ±µÄ²ÉÑùÂÊ
@@ -67,7 +67,7 @@ void AudioPlayer::audioSetting()
 
 int AudioPlayer::setAudioSDL()
 {
-	//è·å–è¾“å‡ºçš„å£°é“ä¸ªæ•°
+	//»ñÈ¡Êä³öµÄÉùµÀ¸öÊı
 	out_channel_nb = av_get_channel_layout_nb_channels(out_ch_layout);
 	//SDL_AudioSpec
 	wanted_spec.freq = out_sample_rate;
@@ -75,7 +75,7 @@ int AudioPlayer::setAudioSDL()
 	wanted_spec.channels = out_channel_nb;
 	wanted_spec.silence = 0;
 	wanted_spec.samples = pCodeCtx->frame_size;
-	wanted_spec.callback = fill_audio;//å›è°ƒå‡½æ•°
+	wanted_spec.callback = fill_audio;//»Øµ÷º¯Êı
 	wanted_spec.userdata = pCodeCtx;
 	if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
 		printf("can't open audio.\n");
@@ -84,14 +84,14 @@ int AudioPlayer::setAudioSDL()
 }
 
 static Uint8* audio_chunk;
-//è®¾ç½®éŸ³é¢‘æ•°æ®é•¿åº¦
+//ÉèÖÃÒôÆµÊı¾İ³¤¶È
 static Uint32 audio_len;
 static Uint8* audio_pos;
 
 void  AudioPlayer::fill_audio(void* udata, Uint8* stream, int len) {
 	//SDL 2.0
 	SDL_memset(stream, 0, len);
-	if (audio_len == 0)		//æœ‰æ•°æ®æ‰æ’­æ”¾
+	if (audio_len == 0)		//ÓĞÊı¾İ²Å²¥·Å
 		return;
 	len = (len > audio_len ? audio_len : len);
 
@@ -224,7 +224,7 @@ int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volum
 			speed_idx = 2;
 		}
 
-		//æ›´æ–°é”®ç›˜çŠ¶æ€
+		//¸üĞÂ¼üÅÌ×´Ì¬
 		state = SDL_GetKeyboardState(NULL);
 
 	}
@@ -263,11 +263,7 @@ int AudioPlayer::feedAudioData_forSpeed(ALuint uiSource, ALuint alBufferId, bool
 				if (packet->stream_index != index) {
 					continue;
 				}
-<<<<<<< HEAD
 
-=======
-				
->>>>>>> e5ff6fa5c30019016b1ac980a9eda9fc97e72c97
 				ret = avcodec_send_packet(pCodeCtx, packet);
 				if (ret == 0) {
 					av_packet_unref(packet);
@@ -411,7 +407,7 @@ uint64_t AudioPlayer::getPts() {
 
 int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 {
-	//--------åˆå§‹åŒ–openAL--------
+	//--------³õÊ¼»¯openAL--------
 	ALCdevice* pDevice = alcOpenDevice(NULL);
 	ALCcontext* pContext = alcCreateContext(pDevice, NULL);
 	alcMakeContextCurrent(pContext);
@@ -435,7 +431,7 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 	alSourcefv(source, AL_VELOCITY, SourceVel);
 	alSourcef(source, AL_REFERENCE_DISTANCE, 50.0f);
 	alSourcei(source, AL_LOOPING, AL_FALSE);
-	//--------åˆå§‹åŒ–openAL--------
+	//--------³õÊ¼»¯openAL--------
 	alDistanceModel(AL_LINEAR_DISTANCE_CLAMPED);
 	alListener3f(AL_POSITION, 0, 0, 0);
 
@@ -444,7 +440,7 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 	alGenBuffers(NUMBUFFERS, alBufferArray);
 
 
-	//å¯åŠ¨æ’­æ”¾å’ŒéŸ³é‡æ§åˆ¶çº¿ç¨‹
+	//Æô¶¯²¥·ÅºÍÒôÁ¿¿ØÖÆÏß³Ì
 	bool exitControl = false;
 	bool pause = false;
 	bool volumnChange = false;
@@ -498,7 +494,7 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 			iBuffersProcessed -= 1;
 		}
 
-		//æ”¹å˜éŸ³é‡
+		//¸Ä±äÒôÁ¿
 		if (volumnChange) {
 			alSourcef(source, AL_GAIN, volumn);
 			cout << "volumnChange" << endl;
@@ -547,8 +543,8 @@ int AudioPlayer::play()
 {
 	//ç¼–ç æ•°æ®
 	AVPacket* packet = (AVPacket*)av_malloc(sizeof(AVPacket));
-	//av_init_packet(packet);		//åˆå§‹åŒ–
-	//è§£å‹ç¼©æ•°æ®
+	//av_init_packet(packet);		//åˆå§‹åŒ?
+	//è§£å‹ç¼©æ•°æ?
 	AVFrame* frame = av_frame_alloc();
 	//å­˜å‚¨pcmæ•°æ®
 	uint8_t* out_buffer = (uint8_t*)av_malloc(2 * RATE);
@@ -565,7 +561,7 @@ int AudioPlayer::play()
 			//if (ret != 0) { printf("%s/n", "error"); }
 			//got_frame = avcodec_receive_frame(pCodeCtx, frame);			//output=0ã€‹success, a frame was returned
 			//while ((got_frame = avcodec_receive_frame(pCodeCtx, frame)) == 0) {
-			//		//è¯»å–åˆ°ä¸€å¸§éŸ³é¢‘æˆ–è€…è§†é¢‘
+			//		//è¯»å–åˆ°ä¸€å¸§éŸ³é¢‘æˆ–è€…è§†é¢?
 			//		//å¤„ç†è§£ç åéŸ³è§†é¢‘ frame
 			//		swr_convert(swrCtx, &out_buffer, 2 * 44100, (const uint8_t**)frame->data, frame->nb_samples);
 			//}
@@ -575,10 +571,10 @@ int AudioPlayer::play()
 				 printf("%s", "è§£ç å®Œæˆ");
 			}
 
-			//é0ï¼Œæ­£åœ¨è§£ç 
+			//é?ï¼Œæ­£åœ¨è§£ç ?
 			int out_buffer_size;
 			if (got_frame) {
-				//printf("è§£ç %då¸§", framecount++);
+				//printf("è§£ç %då¸?, framecount++);
 				swr_convert(swrCtx, &out_buffer, 2 * 44100, (const uint8_t**)frame->data, frame->nb_samples);
 				//è·å–sampleçš„size
 				out_buffer_size = av_samples_get_buffer_size(NULL, out_channel_nb, frame->nb_samples,
