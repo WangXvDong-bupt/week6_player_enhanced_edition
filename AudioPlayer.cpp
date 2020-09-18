@@ -4,6 +4,7 @@
 
 #include "OpenAL/include/alc.h"
 #include "OpenAL/include/al.h"
+
 #include <chrono>
 #include <thread>
 #include <string>
@@ -59,6 +60,9 @@ void AudioPlayer::audioSetting()
 
 	//获取输出的声道个数
 	out_channel_nb = av_get_channel_layout_nb_channels(out_ch_layout);
+
+	s_touch.setSampleRate(out_sample_rate); // 设置变速时的采样率
+	s_touch.setChannels(out_channel_nb); // 设置变速时的通道数
 }
 
 int AudioPlayer::setAudioSDL()
@@ -178,7 +182,7 @@ int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volum
 			key_minus_down = false;
 		}
 		volumnChange = (key_plus_down || key_minus_down);
-
+		
 		if (state[SDL_SCANCODE_KP_1] && !fast_foeward_10) {
 			fast_foeward_10 = true;
 			seek_req = true;
@@ -227,14 +231,18 @@ int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volum
 	return 0;
 }
 
+unsigned long ulFormat = 0;
 bool fileGotToEnd = false;
-int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
+int outSamples = 0;
+int outDataSize = 0;
+int AudioPlayer::feedAudioData_forSpeed(ALuint uiSource, ALuint alBufferId, bool isRevSample) {
 	int ret = -1;
 
 	uint8_t* outBuffer = (uint8_t*)av_malloc(2 * out_sample_rate);		//
 	static int outBufferSize = 0;
 	AVPacket* packet = (AVPacket*)av_malloc(sizeof(AVPacket));
 	static AVFrame* aFrame = av_frame_alloc();
+	soundtouch::SAMPLETYPE* touchBuffer = (soundtouch::SAMPLETYPE*)av_malloc(4 * out_sample_rate);
 
 	while (true) {
 		while (!fileGotToEnd) {
@@ -251,6 +259,10 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 			}
 
 			if (av_read_frame(pFormatCtx, packet) >= 0) {
+
+				if (packet->stream_index != index) {
+					continue;
+				}
 
 				ret = avcodec_send_packet(pCodeCtx, packet);
 				if (ret == 0) {
@@ -294,8 +306,7 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 			memset(outBuffer, 0, outBufferSize);
 		}
 
-		int outSamples;
-		int outDataSize;
+		
 
 		outSamples = swr_convert(swrCtx, &outBuffer, 2 * out_sample_rate,
 			(const uint8_t**)aFrame->data, aFrame->nb_samples);
@@ -309,7 +320,7 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 			//throw std::runtime_error("error: outDataSize=" + outDataSize);
 		}
 
-		unsigned long ulFormat = 0;
+		
 
 		if (aFrame->channels == 1) {
 			ulFormat = AL_FORMAT_MONO16;
@@ -317,12 +328,77 @@ int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
 		else {
 			ulFormat = AL_FORMAT_STEREO16;
 		}
-		alBufferData(alBufferId, ulFormat, outBuffer, outDataSize, out_sample_rate);
-		alSourceQueueBuffers(uiSource, 1, &alBufferId);
-	}
 
+		if (speed_req) {
+			s_touch.setTempo(speed_idx);
+			ptsAudioFromSpeed = ptsAudio;			//记录开始倍速播放时的pts
+			cout << "ptsAudioFromSpeed:" << ptsAudioFromSpeed << "   speed_idx:" << speed_idx << endl;
+			speed_req = false;
+		}
+		else if (speed_idx == 1) {
+			ptsAudioFromSpeed = ptsAudio; 
+		}
+		for (int i = 0; i < outDataSize / 2 + 1; i++) {
+			touchBuffer[i] = (outBuffer[i * 2] | (outBuffer[i * 2 + 1] << 8));
+		}
+		s_touch.putSamples(touchBuffer, outSamples);
+
+		if (isRevSample) {
+			int nSamples = 0;
+			int touchDateSize;
+
+			nSamples = s_touch.receiveSamples(touchBuffer, outSamples);
+			touchDateSize = nSamples * out_channel_nb * av_get_bytes_per_sample(out_sample_fmt);
+			alBufferData(alBufferId, ulFormat, touchBuffer, touchDateSize, out_sample_rate);
+			alSourceQueueBuffers(uiSource, 1, &alBufferId);
+			//ptsAudio = ptsAudioFromSpeed + (ptsAudio - ptsAudioFromSpeed) * speed_idx;			//更新倍速下的pts
+			//cout << "ptsAudioForSpeed:" << ptsAudio << endl;
+		}
+		
+	}
 	return 0;
 }
+
+int AudioPlayer::feedAudioData(ALuint uiSource, ALuint alBufferId) {
+	bool isRecSamples;
+	if (speed_idx < 1) {
+		if (speed_count >= (1 / (1 - speed_idx))) {
+			speed_count = 1;
+			int nSamples = 0;
+			int touchDateSize;
+			soundtouch::SAMPLETYPE* touchBuffer = (soundtouch::SAMPLETYPE*)av_malloc(4 * out_sample_rate);
+			nSamples = s_touch.receiveSamples(touchBuffer, outSamples);
+			touchDateSize = nSamples * out_channel_nb * av_get_bytes_per_sample(out_sample_fmt);
+			alBufferData(alBufferId, ulFormat, touchBuffer, touchDateSize, out_sample_rate);
+			alSourceQueueBuffers(uiSource, 1, &alBufferId);
+		}
+		else {
+			speed_count += 1;
+			feedAudioData_forSpeed(uiSource, alBufferId, true);
+		}
+	}
+	else if (speed_idx > 1) {
+		if (speed_count >= (1 / (speed_idx - 1) + 1)) {
+			speed_count = 1;
+			feedAudioData_forSpeed(uiSource, alBufferId, false);
+			feedAudioData(uiSource, alBufferId);
+		}
+		else {
+			speed_count += 1;
+			feedAudioData_forSpeed(uiSource, alBufferId, true);
+		}
+	}
+	else {
+		feedAudioData_forSpeed(uiSource, alBufferId, true);
+	}
+	/*else if(speed_idx > 1) {
+		if (speed_count >= (1 / (speed_idx - 1) + 1)) {
+
+		}
+	}*/
+	return 0;
+}
+
 
 uint64_t AudioPlayer::getPts() {
 	return ptsAudio;
@@ -424,10 +500,10 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 			cout << "volumnChange" << endl;
 		}
 
-		if (speed_req) {
-			alSourcef(source, AL_PITCH, speed_idx);
+		/*if (speed_req) {
+			//alSourcef(source, AL_PITCH, speed_idx);		//改变音调
 			speed_req = false;
-		}
+		}*/
 
 
 		// Check the status of the Source.  If it is not playing, then playback

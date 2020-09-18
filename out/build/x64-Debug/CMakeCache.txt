@@ -115,7 +115,7 @@ CMAKE_INSTALL_PREFIX:PATH=D:/保研实习/ffplayer_synchronously/out/install/x64
 CMAKE_LINKER:FILEPATH=C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.25.28610/bin/Hostx64/x64/link.exe
 
 //make program
-CMAKE_MAKE_PROGRAM:FILEPATH=C:/PROGRA~2/MICROS~2/2019/COMMUN~1/Common7/IDE/COMMON~1/MICROS~1/CMake/Ninja/ninja.exe
+CMAKE_MAKE_PROGRAM:FILEPATH=C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe
 
 //Flags used by the linker during the creation of modules during
 // all build types.
@@ -231,6 +231,12 @@ POSTPROC_INCLUDE_DIR:PATH=POSTPROC_INCLUDE_DIR-NOTFOUND
 
 //Path to a library.
 POSTPROC_LIBRARY:FILEPATH=POSTPROC_LIBRARY-NOTFOUND
+
+//Path to a file.
+SOUNDTOUCH_INCLUDE_DIR:PATH=SOUNDTOUCH_INCLUDE_DIR-NOTFOUND
+
+//Path to a library.
+SOUNDTOUCH_LIBRARY:FILEPATH=SOUNDTOUCH_LIBRARY-NOTFOUND
 
 //Path to a file.
 SWRESAMPLE_INCLUDE_DIR:PATH=SWRESAMPLE_INCLUDE_DIR-NOTFOUND

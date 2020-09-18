@@ -5,6 +5,8 @@
 #include "Player.h"
 #include "OpenAL/include/alc.h"
 #include "OpenAL/include/al.h"
+#include "SoundTouch/include/SoundTouch.h"
+#include "SoundTouch/include/STTypes.h"
 #include <chrono>
 #include <thread>
 #include <string>
@@ -47,6 +49,9 @@ private:
 	bool speed_req = false;
 	double speed_idx = 1;
 
+	soundtouch::SoundTouch s_touch;
+	int speed_count = 0;
+
 public:
 	void audioSetting();
 	int setAudioSDL();
@@ -57,12 +62,14 @@ public:
 		bool& fast_foeward_10, bool& fast_foeward_30, bool& seek_req, bool& speed_req, double& speed_idx);
 
 	uint64_t ptsAudio = 0;
+	uint64_t ptsAudioFromSpeed = 0;
 	uint64_t getPts();
 
 private:
 	static void fill_audio(void* udata, Uint8* stream, int len);
 	int feedAudioData(ALuint uiSource, ALuint alBufferId);
 	int allocDataBuf(uint8_t** outData, int inputSamples);
+	int feedAudioData_forSpeed(ALuint uiSource, ALuint alBufferId, bool isRevSample);
 };
 
 

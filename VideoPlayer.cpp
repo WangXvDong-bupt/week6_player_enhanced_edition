@@ -61,7 +61,7 @@ int VideoPlayer::sfp_refresh_thread(int timeInterval, bool& exitRefresh, bool& f
 			SDL_PushEvent(&event);
 			//SDL_Delay(60);
 			if (speed_req) {
-				time_idx = speed_idx * timeInterval;
+				time_idx = 1 / speed_idx * timeInterval;
 				speed_req = false;
 			}
 			
@@ -246,27 +246,27 @@ int VideoPlayer::play(uint64_t* pts_audio)
 
 					case SDLK_KP_4:
 						speed_idx = 0.5;
-						speed_idx = true;
+						speed_req = true;
 						break;
 
 					case SDLK_KP_5:
 						speed_idx = 0.75;
-						speed_idx = true;
+						speed_req = true;
 						break;
 
 					case SDLK_KP_6:
 						speed_idx = 1;
-						speed_idx = true;
+						speed_req = true;
 						break;
 
 					case SDLK_KP_7:
 						speed_idx = 1.5;
-						speed_idx = true;
+						speed_req = true;
 						break;
 
 					case SDLK_KP_8:
 						speed_idx = 2;
-						speed_idx = true;
+						speed_req = true;
 						break;
 
 					default:

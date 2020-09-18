@@ -11,6 +11,9 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS "-D__STDC_CONSTANT_MACROS")
 
+set(CMAKE_CXX_FLAGS_RELEASE "/MT")
+set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+
 IF(MSVC)
     SET(CMAKE_CXX_FLAGS "/EHsc")  # deal with MSVC Warning C4530
 ENDIF(MSVC)
@@ -74,6 +77,17 @@ find_library(OpenAL_LIBRARY "OpenAL32.lib")
 
 
 ######################################
+#  SoundTouch lib setting
+######################################
+
+#set(SOUNDTOUCH_INCLUDE_DIR "./include/SoundTouch/include/SoundTouch.h")
+#set(SDL_LIBRARY "SoundTouchD_x64.lib")
+
+find_path(SOUNDTOUCH_INCLUDE_DIR "SoundTouch/SoundTouch.h")
+find_library(SOUNDTOUCH_LIBRARY SoundTouchD_x64.lib)
+
+
+######################################
 #  information
 ######################################
 
@@ -97,6 +111,7 @@ target_link_libraries(
 	SDL2main
 	SDL2test
 	OpenAL32
+	SoundTouchD_x64
 )
 
 # TODO: 如有需要，请添加测试并安装目标。
