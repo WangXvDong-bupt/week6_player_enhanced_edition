@@ -26,39 +26,39 @@ AudioPlayer::AudioPlayer()
 
 AudioPlayer::~AudioPlayer()
 {
-	SDL_CloseAudio();//¹Ø±ÕÒôÆµÉè±¸ 
+	SDL_CloseAudio();//å…³é—­éŸ³é¢‘è®¾å¤‡ 
 	swr_free(&swrCtx);
 }
 
 
 void AudioPlayer::audioSetting()
 {
-	//ÖØ²ÉÑùÉèÖÃÑ¡Ïî-----------------------------------------------------------start
-	//ÊäÈëµÄ²ÉÑù¸ñÊ½
+	//é‡é‡‡æ ·è®¾ç½®é€‰é¡¹-----------------------------------------------------------start
+	//è¾“å…¥çš„é‡‡æ ·æ ¼å¼
 	in_sample_fmt = pCodeCtx->sample_fmt;
-	//Êä³öµÄ²ÉÑù¸ñÊ½ 16bit PCM
+	//è¾“å‡ºçš„é‡‡æ ·æ ¼å¼ 16bit PCM
 	out_sample_fmt = AV_SAMPLE_FMT_S16;
-	//ÊäÈëµÄ²ÉÑùÂÊ
+	//è¾“å…¥çš„é‡‡æ ·ç‡
 	in_sample_rate = pCodeCtx->sample_rate;
-	//Êä³öµÄ²ÉÑùÂÊ
+	//è¾“å‡ºçš„é‡‡æ ·ç‡
 	out_sample_rate = pCodeCtx->sample_rate;
-	//ÊäÈëµÄÉùµÀ²¼¾Ö
+	//è¾“å…¥çš„å£°é“å¸ƒå±€
 	in_ch_layout = pCodeCtx->channel_layout;
 	if (in_ch_layout <= 0)
 	{
 		in_ch_layout = av_get_default_channel_layout(pCodeCtx->channels);
 	}
-	//Êä³öµÄÉùµÀ²¼¾Ö
-	out_ch_layout = AV_CH_LAYOUT_STEREO;			//ÓëSDL²¥·Å²»Í¬
+	//è¾“å‡ºçš„å£°é“å¸ƒå±€
+	out_ch_layout = AV_CH_LAYOUT_STEREO;			//ä¸SDLæ’­æ”¾ä¸åŒ
 
-	//frame->16bit 44100 PCM Í³Ò»ÒôÆµ²ÉÑù¸ñÊ½Óë²ÉÑùÂÊ
+	//frame->16bit 44100 PCM ç»Ÿä¸€éŸ³é¢‘é‡‡æ ·æ ¼å¼ä¸é‡‡æ ·ç‡
 	swrCtx = swr_alloc();
 	swr_alloc_set_opts(swrCtx, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout, in_sample_fmt,
 		in_sample_rate, 0, NULL);
 	swr_init(swrCtx);
-	//ÖØ²ÉÑùÉèÖÃÑ¡Ïî-----------------------------------------------------------end
+	//é‡é‡‡æ ·è®¾ç½®é€‰é¡¹-----------------------------------------------------------end
 
-	//»ñÈ¡Êä³öµÄÉùµÀ¸öÊı
+	//è·å–è¾“å‡ºçš„å£°é“ä¸ªæ•°
 	out_channel_nb = av_get_channel_layout_nb_channels(out_ch_layout);
 
 	s_touch.setSampleRate(out_sample_rate); // ÉèÖÃ±äËÙÊ±µÄ²ÉÑùÂÊ
@@ -67,7 +67,7 @@ void AudioPlayer::audioSetting()
 
 int AudioPlayer::setAudioSDL()
 {
-	//»ñÈ¡Êä³öµÄÉùµÀ¸öÊı
+	//è·å–è¾“å‡ºçš„å£°é“ä¸ªæ•°
 	out_channel_nb = av_get_channel_layout_nb_channels(out_ch_layout);
 	//SDL_AudioSpec
 	wanted_spec.freq = out_sample_rate;
@@ -75,7 +75,7 @@ int AudioPlayer::setAudioSDL()
 	wanted_spec.channels = out_channel_nb;
 	wanted_spec.silence = 0;
 	wanted_spec.samples = pCodeCtx->frame_size;
-	wanted_spec.callback = fill_audio;//»Øµ÷º¯Êı
+	wanted_spec.callback = fill_audio;//å›è°ƒå‡½æ•°
 	wanted_spec.userdata = pCodeCtx;
 	if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
 		printf("can't open audio.\n");
@@ -84,14 +84,14 @@ int AudioPlayer::setAudioSDL()
 }
 
 static Uint8* audio_chunk;
-//ÉèÖÃÒôÆµÊı¾İ³¤¶È
+//è®¾ç½®éŸ³é¢‘æ•°æ®é•¿åº¦
 static Uint32 audio_len;
 static Uint8* audio_pos;
 
 void  AudioPlayer::fill_audio(void* udata, Uint8* stream, int len) {
 	//SDL 2.0
 	SDL_memset(stream, 0, len);
-	if (audio_len == 0)		//ÓĞÊı¾İ²Å²¥·Å
+	if (audio_len == 0)		//æœ‰æ•°æ®æ‰æ’­æ”¾
 		return;
 	len = (len > audio_len ? audio_len : len);
 
@@ -224,7 +224,7 @@ int AudioPlayer::sfp_control_thread(bool& exitControl, bool& pause, float& volum
 			speed_idx = 2;
 		}
 
-		//¸üĞÂ¼üÅÌ×´Ì¬
+		//æ›´æ–°é”®ç›˜çŠ¶æ€
 		state = SDL_GetKeyboardState(NULL);
 
 	}
@@ -263,7 +263,11 @@ int AudioPlayer::feedAudioData_forSpeed(ALuint uiSource, ALuint alBufferId, bool
 				if (packet->stream_index != index) {
 					continue;
 				}
+<<<<<<< HEAD
 
+=======
+				
+>>>>>>> e5ff6fa5c30019016b1ac980a9eda9fc97e72c97
 				ret = avcodec_send_packet(pCodeCtx, packet);
 				if (ret == 0) {
 					av_packet_unref(packet);
@@ -407,7 +411,7 @@ uint64_t AudioPlayer::getPts() {
 
 int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 {
-	//--------³õÊ¼»¯openAL--------
+	//--------åˆå§‹åŒ–openAL--------
 	ALCdevice* pDevice = alcOpenDevice(NULL);
 	ALCcontext* pContext = alcCreateContext(pDevice, NULL);
 	alcMakeContextCurrent(pContext);
@@ -431,7 +435,7 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 	alSourcefv(source, AL_VELOCITY, SourceVel);
 	alSourcef(source, AL_REFERENCE_DISTANCE, 50.0f);
 	alSourcei(source, AL_LOOPING, AL_FALSE);
-	//--------³õÊ¼»¯openAL--------
+	//--------åˆå§‹åŒ–openAL--------
 	alDistanceModel(AL_LINEAR_DISTANCE_CLAMPED);
 	alListener3f(AL_POSITION, 0, 0, 0);
 
@@ -440,7 +444,7 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 	alGenBuffers(NUMBUFFERS, alBufferArray);
 
 
-	//Æô¶¯²¥·ÅºÍÒôÁ¿¿ØÖÆÏß³Ì
+	//å¯åŠ¨æ’­æ”¾å’ŒéŸ³é‡æ§åˆ¶çº¿ç¨‹
 	bool exitControl = false;
 	bool pause = false;
 	bool volumnChange = false;
@@ -494,7 +498,7 @@ int AudioPlayer::playByOpenAL(uint64_t* pts_audio)
 			iBuffersProcessed -= 1;
 		}
 
-		//¸Ä±äÒôÁ¿
+		//æ”¹å˜éŸ³é‡
 		if (volumnChange) {
 			alSourcef(source, AL_GAIN, volumn);
 			cout << "volumnChange" << endl;
@@ -541,52 +545,52 @@ int AudioPlayer::play()
 }
 /*int AudioPlayer::play()
 {
-	//±àÂëÊı¾İ
+	//ç¼–ç æ•°æ®
 	AVPacket* packet = (AVPacket*)av_malloc(sizeof(AVPacket));
-	//av_init_packet(packet);		//³õÊ¼»¯
-	//½âÑ¹ËõÊı¾İ
+	//av_init_packet(packet);		//åˆå§‹åŒ–
+	//è§£å‹ç¼©æ•°æ®
 	AVFrame* frame = av_frame_alloc();
-	//´æ´¢pcmÊı¾İ
+	//å­˜å‚¨pcmæ•°æ®
 	uint8_t* out_buffer = (uint8_t*)av_malloc(2 * RATE);
 
 	int ret, got_frame, framecount = 0;
-	//Ò»Ö¡Ò»Ö¡¶ÁÈ¡Ñ¹ËõµÄÒôÆµÊı¾İAVPacket
+	//ä¸€å¸§ä¸€å¸§è¯»å–å‹ç¼©çš„éŸ³é¢‘æ•°æ®AVPacket
 
 	while (av_read_frame(pFormatCtx, packet) >= 0) {
 		if (packet->stream_index == index) {
-				//½âÂëAVPacket->AVFrame
+				//è§£ç AVPacket->AVFrame
 			ret = avcodec_decode_audio4(pCodeCtx, frame, &got_frame, packet);
 
 			//ret = avcodec_send_packet(pCodeCtx, packet);
 			//if (ret != 0) { printf("%s/n", "error"); }
-			//got_frame = avcodec_receive_frame(pCodeCtx, frame);			//output=0¡·success, a frame was returned
+			//got_frame = avcodec_receive_frame(pCodeCtx, frame);			//output=0ã€‹success, a frame was returned
 			//while ((got_frame = avcodec_receive_frame(pCodeCtx, frame)) == 0) {
-			//		//¶ÁÈ¡µ½Ò»Ö¡ÒôÆµ»òÕßÊÓÆµ
-			//		//´¦Àí½âÂëºóÒôÊÓÆµ frame
+			//		//è¯»å–åˆ°ä¸€å¸§éŸ³é¢‘æˆ–è€…è§†é¢‘
+			//		//å¤„ç†è§£ç åéŸ³è§†é¢‘ frame
 			//		swr_convert(swrCtx, &out_buffer, 2 * 44100, (const uint8_t**)frame->data, frame->nb_samples);
 			//}
 
 
 			if (ret < 0) {
-				 printf("%s", "½âÂëÍê³É");
+				 printf("%s", "è§£ç å®Œæˆ");
 			}
 
-			//·Ç0£¬ÕıÔÚ½âÂë
+			//é0ï¼Œæ­£åœ¨è§£ç 
 			int out_buffer_size;
 			if (got_frame) {
-				//printf("½âÂë%dÖ¡", framecount++);
+				//printf("è§£ç %då¸§", framecount++);
 				swr_convert(swrCtx, &out_buffer, 2 * 44100, (const uint8_t**)frame->data, frame->nb_samples);
-				//»ñÈ¡sampleµÄsize
+				//è·å–sampleçš„size
 				out_buffer_size = av_samples_get_buffer_size(NULL, out_channel_nb, frame->nb_samples,
 					out_sample_fmt, 1);
-				//ÉèÖÃÒôÆµÊı¾İ»º³å,PCMÊı¾İ
+				//è®¾ç½®éŸ³é¢‘æ•°æ®ç¼“å†²,PCMæ•°æ®
 				audio_chunk = (Uint8*)out_buffer;
-				//ÉèÖÃÒôÆµÊı¾İ³¤¶È
+				//è®¾ç½®éŸ³é¢‘æ•°æ®é•¿åº¦
 				audio_len = out_buffer_size;
 				audio_pos = audio_chunk;
-				//»Ø·ÅÒôÆµÊı¾İ
+				//å›æ”¾éŸ³é¢‘æ•°æ®
 				SDL_PauseAudio(0);
-				while (audio_len > 0)//µÈ´ıÖ±µ½ÒôÆµÊı¾İ²¥·ÅÍê±Ï!
+				while (audio_len > 0)//ç­‰å¾…ç›´åˆ°éŸ³é¢‘æ•°æ®æ’­æ”¾å®Œæ¯•!
 					SDL_Delay(10);
 				packet->data += ret;
 				packet->size -= ret;
@@ -599,7 +603,7 @@ int AudioPlayer::play()
 	av_frame_free(&frame);
 	//av_free_packet(packet);
 	av_packet_unref(packet);
-	SDL_CloseAudio();//¹Ø±ÕÒôÆµÉè±¸
+	SDL_CloseAudio();//å…³é—­éŸ³é¢‘è®¾å¤‡
 	swr_free(&swrCtx);
 	return 0;
 }*/
